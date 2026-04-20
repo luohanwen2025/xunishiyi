@@ -1,8 +1,20 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 
-type UploadSlot = "personImage" | "garmentImage";
+const POLL_INTERVAL = 3000; // 3 秒轮询一次
+const POLL_MAX_ATTEMPTS = 30; // 最多轮询 30 次 = 90 秒
+
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: "排队中...",
+  "PRE-PROCESSING": "预处理中...",
+  RUNNING: "AI 正在试穿...",
+  "POST-PROCESSING": "后处理中...",
+  SUCCEEDED: "完成",
+  FAILED: "失败",
+  UNKNOWN: "查询中...",
+  TIMEOUT: "超时",
+};
 
 export default function Home() {
   const [personImage, setPersonImage] = useState<File | null>(null);
@@ -12,24 +24,31 @@ export default function Home() {
   const [resultImageUrl, setResultImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [taskStatus, setTaskStatus] = useState<string | null>(null);
+  const [pollCount, setPollCount] = useState(0);
 
   const personInputRef = useRef<HTMLInputElement>(null);
   const garmentInputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<boolean>(false);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortRef.current = true;
+    };
+  }, []);
 
   function handleFileSelect(
-    slot: UploadSlot,
     file: File,
     setFile: (f: File | null) => void,
     setPreview: (url: string | null) => void
   ) {
-    // Validate file type
     const validTypes = ["image/jpeg", "image/png", "image/jpg", "image/bmp", "image/heic"];
     if (!validTypes.includes(file.type)) {
       setError("请上传 JPG、PNG、BMP 或 HEIC 格式的图片");
       return;
     }
 
-    // Validate file size (5KB ~ 5MB)
     if (file.size < 5 * 1024) {
       setError("图片文件太小，请上传大于 5KB 的图片");
       return;
@@ -41,23 +60,62 @@ export default function Home() {
 
     setError(null);
     setFile(file);
-    const url = URL.createObjectURL(file);
-    setPreview(url);
+    setPreview(URL.createObjectURL(file));
   }
 
   function handleDrop(
     e: React.DragEvent,
-    slot: UploadSlot,
     setFile: (f: File | null) => void,
     setPreview: (url: string | null) => void
   ) {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
-    if (file) {
-      handleFileSelect(slot, file, setFile, setPreview);
-    }
+    if (file) handleFileSelect(file, setFile, setPreview);
   }
 
+  /** Step 2: 轮询任务状态直到成功或失败 */
+  const pollStatus = useCallback(async (taskId: string) => {
+    for (let i = 0; i < POLL_MAX_ATTEMPTS; i++) {
+      if (abortRef.current) return;
+
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
+
+      if (abortRef.current) return;
+
+      try {
+        const res = await fetch(`/api/status?taskId=${taskId}`);
+        const data = await res.json();
+
+        setPollCount(i + 1);
+        setTaskStatus(data.status);
+
+        if (data.status === "SUCCEEDED") {
+          setResultImageUrl(data.imageUrl);
+          setLoading(false);
+          return;
+        }
+
+        if (data.status === "FAILED") {
+          setError(data.errorMessage || data.error || "生成失败，请重试");
+          setLoading(false);
+          return;
+        }
+
+        // Other statuses: continue polling
+      } catch {
+        // Network error on single poll — don't give up, retry next cycle
+        console.warn(`[tryon] 轮询第 ${i + 1} 次网络错误，继续重试`);
+      }
+    }
+
+    // Exhausted all attempts
+    if (!abortRef.current) {
+      setError("生成超时（超过 90 秒），请重试");
+      setLoading(false);
+    }
+  }, []);
+
+  /** Step 1: 上传图片 + 创建任务，然后开始轮询 */
   async function handleTryOn() {
     if (!personImage || !garmentImage) {
       setError("请先上传人物照片和服装照片");
@@ -67,8 +125,12 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setResultImageUrl(null);
+    setTaskStatus(null);
+    setPollCount(0);
+    abortRef.current = false;
 
     try {
+      // Step 1: Create task
       const formData = new FormData();
       formData.append("personImage", personImage);
       formData.append("garmentImage", garmentImage);
@@ -81,14 +143,18 @@ export default function Home() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "生成失败，请重试");
+        setError(data.error || "创建任务失败，请重试");
+        setLoading(false);
         return;
       }
 
-      setResultImageUrl(data.imageUrl);
+      const taskId: string = data.taskId;
+      setTaskStatus("PENDING");
+
+      // Step 2: Poll for result
+      await pollStatus(taskId);
     } catch {
       setError("网络错误，请检查网络连接后重试");
-    } finally {
       setLoading(false);
     }
   }
@@ -100,12 +166,16 @@ export default function Home() {
   }
 
   function handleReset() {
+    abortRef.current = true;
     setPersonImage(null);
     setGarmentImage(null);
     setPersonPreview(null);
     setGarmentPreview(null);
     setResultImageUrl(null);
     setError(null);
+    setTaskStatus(null);
+    setPollCount(0);
+    setLoading(false);
   }
 
   const canSubmit = personImage && garmentImage && !loading;
@@ -130,32 +200,18 @@ export default function Home() {
             hint="正面全身照、背景简洁、无遮挡"
             previewUrl={personPreview}
             inputRef={personInputRef}
-            onFile={(file) =>
-              handleFileSelect("personImage", file, setPersonImage, setPersonPreview)
-            }
-            onDrop={(e) =>
-              handleDrop(e, "personImage", setPersonImage, setPersonPreview)
-            }
-            onClear={() => {
-              setPersonImage(null);
-              setPersonPreview(null);
-            }}
+            onFile={(file) => handleFileSelect(file, setPersonImage, setPersonPreview)}
+            onDrop={(e) => handleDrop(e, setPersonImage, setPersonPreview)}
+            onClear={() => { setPersonImage(null); setPersonPreview(null); }}
           />
           <UploadBox
             label="服装照片"
             hint="平铺图、背景干净、单件服装"
             previewUrl={garmentPreview}
             inputRef={garmentInputRef}
-            onFile={(file) =>
-              handleFileSelect("garmentImage", file, setGarmentImage, setGarmentPreview)
-            }
-            onDrop={(e) =>
-              handleDrop(e, "garmentImage", setGarmentImage, setGarmentPreview)
-            }
-            onClear={() => {
-              setGarmentImage(null);
-              setGarmentPreview(null);
-            }}
+            onFile={(file) => handleFileSelect(file, setGarmentImage, setGarmentPreview)}
+            onDrop={(e) => handleDrop(e, setGarmentImage, setGarmentPreview)}
+            onClear={() => { setGarmentImage(null); setGarmentPreview(null); }}
           />
         </div>
 
@@ -189,10 +245,8 @@ export default function Home() {
           {(resultImageUrl || personImage || garmentImage) && (
             <button
               onClick={handleReset}
-              disabled={loading}
               className="h-12 px-6 rounded-lg border border-gray-300 text-gray-700 font-medium
-                hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed
-                transition-colors"
+                hover:bg-gray-100 transition-colors"
             >
               重来
             </button>
@@ -204,8 +258,15 @@ export default function Home() {
           <div className="text-center mb-8">
             <div className="inline-block w-8 h-8 border-4 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
             <p className="text-gray-500 mt-3 text-sm">
-              AI 正在为你试穿，大约需要 15-30 秒...
+              {taskStatus
+                ? STATUS_LABELS[taskStatus] || taskStatus
+                : "正在提交任务..."}
             </p>
+            {pollCount > 0 && (
+              <p className="text-gray-400 mt-1 text-xs">
+                已等待 {(pollCount * 3)} 秒...
+              </p>
+            )}
           </div>
         )}
 
@@ -278,10 +339,7 @@ function UploadBox({
             className="max-h-40 rounded object-contain mb-2"
           />
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onClear();
-            }}
+            onClick={(e) => { e.stopPropagation(); onClear(); }}
             className="text-sm text-red-500 hover:text-red-700"
           >
             重新上传
