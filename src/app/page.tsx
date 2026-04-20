@@ -181,20 +181,21 @@ export default function Home() {
   const canSubmit = personImage && garmentImage && !loading;
 
   return (
-    <div className="flex flex-col flex-1 items-center px-4 py-8 sm:py-12">
+    <div className="flex flex-col flex-1 items-center px-4 py-10 sm:py-16">
       <div className="w-full max-w-2xl">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        <div className="text-center mb-10">
+          <h1 className="text-3xl sm:text-4xl font-semibold text-[#141413] mb-3 tracking-tight"
+              style={{ fontFamily: "var(--font-heading), Arial, sans-serif" }}>
             AI 虚拟试衣
           </h1>
-          <p className="text-gray-500">
+          <p className="text-[#b0aea5] text-base leading-relaxed">
             上传你的照片和服装图片，看看穿上是什么效果
           </p>
         </div>
 
         {/* Upload Area */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-8">
           <UploadBox
             label="人物照片"
             hint="正面全身照、背景简洁、无遮挡"
@@ -216,9 +217,13 @@ export default function Home() {
         </div>
 
         {/* Photo Tips */}
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 text-sm text-amber-800">
-          <p className="font-medium mb-1">拍照小贴士</p>
-          <ul className="list-disc list-inside space-y-0.5 text-amber-700">
+        <div className="bg-white border border-[#e8e6dc] rounded-xl p-5 mb-8 text-sm relative overflow-hidden">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#d97757]" />
+          <p className="font-medium text-[#141413] mb-2 pl-2"
+             style={{ fontFamily: "var(--font-heading), Arial, sans-serif" }}>
+            拍照小贴士
+          </p>
+          <ul className="list-disc list-inside space-y-1 text-[#b0aea5] pl-2">
             <li>人物照片：正面站姿、光线充足、双手双脚可见、无配饰遮挡</li>
             <li>服装照片：平铺拍摄、衣服平整无折叠、背景简约干净</li>
           </ul>
@@ -226,27 +231,29 @@ export default function Home() {
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-sm text-red-700">
+          <div className="bg-red-50/70 border border-red-200/70 rounded-xl p-4 mb-8 text-sm text-red-600">
             {error}
           </div>
         )}
 
         {/* Action Buttons */}
-        <div className="flex gap-3 mb-8">
+        <div className="flex gap-3 mb-10">
           <button
             onClick={handleTryOn}
             disabled={!canSubmit}
-            className="flex-1 h-12 rounded-lg bg-gray-900 text-white font-medium
-              hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed
+            className="flex-1 h-12 rounded-xl bg-[#d97757] text-white font-medium text-base
+              hover:bg-[#c4684d] disabled:bg-[#e8e6dc] disabled:text-[#b0aea5] disabled:cursor-not-allowed
               transition-colors"
+            style={{ fontFamily: "var(--font-heading), Arial, sans-serif" }}
           >
             {loading ? "生成中..." : "开始试衣"}
           </button>
           {(resultImageUrl || personImage || garmentImage) && (
             <button
               onClick={handleReset}
-              className="h-12 px-6 rounded-lg border border-gray-300 text-gray-700 font-medium
-                hover:bg-gray-100 transition-colors"
+              className="h-12 px-6 rounded-xl border border-[#e8e6dc] text-[#141413] font-medium
+                hover:bg-white transition-colors"
+              style={{ fontFamily: "var(--font-heading), Arial, sans-serif" }}
             >
               重来
             </button>
@@ -255,16 +262,16 @@ export default function Home() {
 
         {/* Loading Indicator */}
         {loading && (
-          <div className="text-center mb-8">
-            <div className="inline-block w-8 h-8 border-4 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-            <p className="text-gray-500 mt-3 text-sm">
+          <div className="text-center mb-10">
+            <div className="inline-block w-8 h-8 border-[3px] border-[#e8e6dc] border-t-[#d97757] rounded-full animate-spin" />
+            <p className="text-[#b0aea5] mt-4 text-sm">
               {taskStatus
                 ? STATUS_LABELS[taskStatus] || taskStatus
                 : "正在提交任务..."}
             </p>
             {pollCount > 0 && (
-              <p className="text-gray-400 mt-1 text-xs">
-                已等待 {(pollCount * 3)} 秒...
+              <p className="text-[#b0aea5]/60 mt-1 text-xs">
+                已等待 {pollCount * 3} 秒...
               </p>
             )}
           </div>
@@ -272,11 +279,12 @@ export default function Home() {
 
         {/* Result Image */}
         {resultImageUrl && !loading && (
-          <div className="mb-8">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">
+          <div className="mb-10">
+            <h2 className="text-lg font-semibold text-[#141413] mb-4"
+                style={{ fontFamily: "var(--font-heading), Arial, sans-serif" }}>
               试衣效果
             </h2>
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-xl border border-[#e8e6dc] overflow-hidden shadow-sm">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={resultImageUrl}
@@ -286,8 +294,9 @@ export default function Home() {
             </div>
             <button
               onClick={handleDownload}
-              className="mt-4 w-full h-12 rounded-lg bg-green-600 text-white font-medium
-                hover:bg-green-700 transition-colors"
+              className="mt-5 w-full h-12 rounded-xl bg-[#788c5d] text-white font-medium text-base
+                hover:bg-[#6a7c50] transition-colors"
+              style={{ fontFamily: "var(--font-heading), Arial, sans-serif" }}
             >
               下载效果图
             </button>
@@ -322,12 +331,12 @@ function UploadBox({
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
       onClick={() => !previewUrl && inputRef.current?.click()}
-      className={`relative rounded-lg border-2 border-dashed p-6 text-center cursor-pointer
-        transition-colors min-h-[200px] flex flex-col items-center justify-center
+      className={`relative rounded-xl border-2 border-dashed p-6 text-center cursor-pointer
+        transition-all duration-200 min-h-[220px] flex flex-col items-center justify-center
         ${
           previewUrl
-            ? "border-gray-300 bg-gray-50"
-            : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+            ? "border-[#e8e6dc] bg-white"
+            : "border-[#e8e6dc] hover:border-[#d97757] hover:bg-white/60"
         }`}
     >
       {previewUrl ? (
@@ -336,11 +345,11 @@ function UploadBox({
           <img
             src={previewUrl}
             alt={label}
-            className="max-h-40 rounded object-contain mb-2"
+            className="max-h-40 rounded-lg object-contain mb-3"
           />
           <button
             onClick={(e) => { e.stopPropagation(); onClear(); }}
-            className="text-sm text-red-500 hover:text-red-700"
+            className="text-sm text-[#d97757] hover:text-[#c4684d] transition-colors"
           >
             重新上传
           </button>
@@ -348,7 +357,7 @@ function UploadBox({
       ) : (
         <>
           <svg
-            className="w-10 h-10 text-gray-400 mb-2"
+            className="w-10 h-10 text-[#b0aea5] mb-3"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -360,12 +369,15 @@ function UploadBox({
               d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
             />
           </svg>
-          <p className="text-sm font-medium text-gray-700 mb-1">{label}</p>
-          <p className="text-xs text-gray-400">点击或拖拽上传</p>
+          <p className="text-sm font-medium text-[#141413] mb-1"
+             style={{ fontFamily: "var(--font-heading), Arial, sans-serif" }}>
+            {label}
+          </p>
+          <p className="text-xs text-[#b0aea5]">点击或拖拽上传</p>
         </>
       )}
 
-      <p className="text-xs text-gray-400 mt-2">{hint}</p>
+      <p className="text-xs text-[#b0aea5] mt-3">{hint}</p>
 
       <input
         ref={inputRef}
