@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 const POLL_INTERVAL = 3000; // 3 秒轮询一次
 const POLL_MAX_ATTEMPTS = 30; // 最多轮询 30 次 = 90 秒
@@ -17,6 +18,8 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function Home() {
+  const router = useRouter();
+  const [username, setUsername] = useState<string | null>(null);
   const [personImage, setPersonImage] = useState<File | null>(null);
   const [garmentImage, setGarmentImage] = useState<File | null>(null);
   const [personPreview, setPersonPreview] = useState<string | null>(null);
@@ -30,6 +33,16 @@ export default function Home() {
   const personInputRef = useRef<HTMLInputElement>(null);
   const garmentInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<boolean>(false);
+
+  // Fetch current user
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.user) setUsername(data.user.username);
+      })
+      .catch(() => {});
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -178,11 +191,31 @@ export default function Home() {
     setLoading(false);
   }
 
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }
+
   const canSubmit = personImage && garmentImage && !loading;
 
   return (
     <div className="flex flex-col flex-1 items-center px-4 py-10 sm:py-16">
       <div className="w-full max-w-2xl">
+        {/* User Bar */}
+        <div className="flex items-center justify-between mb-6">
+          <span className="text-sm text-[#b0aea5]">
+            {username ? `${username}，你好` : ""}
+          </span>
+          <button
+            onClick={handleLogout}
+            className="text-sm text-[#b0aea5] hover:text-[#141413] transition-colors"
+            style={{ fontFamily: "var(--font-heading), Arial, sans-serif" }}
+          >
+            退出登录
+          </button>
+        </div>
+
         {/* Header */}
         <div className="text-center mb-10">
           <h1 className="text-3xl sm:text-4xl font-semibold text-[#141413] mb-3 tracking-tight"
