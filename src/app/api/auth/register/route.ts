@@ -4,12 +4,41 @@ import { hashPassword, createToken, setAuthCookie } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, password } = await request.json();
+    const { username, password, turnstileToken } = await request.json();
 
     if (!username || !password) {
       return NextResponse.json(
         { error: "请输入用户名和密码" },
         { status: 400 }
+      );
+    }
+
+    // Turnstile 人机验证
+    if (!turnstileToken) {
+      return NextResponse.json(
+        { error: "请完成人机验证" },
+        { status: 403 }
+      );
+    }
+
+    const verifyResponse = await fetch(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          secret: process.env.TURNSTILE_SECRET_KEY,
+          response: turnstileToken,
+        }),
+      }
+    );
+
+    const verifyResult = await verifyResponse.json();
+
+    if (!verifyResult.success) {
+      return NextResponse.json(
+        { error: "人机验证失败，请重试" },
+        { status: 403 }
       );
     }
 
