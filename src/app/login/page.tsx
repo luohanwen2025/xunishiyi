@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Turnstile } from "@marsidev/react-turnstile";
 
 type Tab = "login" | "register";
 
@@ -12,6 +13,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -143,6 +145,16 @@ export default function LoginPage() {
             <div className="bg-red-50/70 border border-red-200/70 rounded-xl p-3 text-sm text-red-600">
               {error}
             </div>
+          )}
+
+          {/* Turnstile (register only) */}
+          {tab === "register" && (
+            <Turnstile
+              siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+              onSuccess={(token) => {
+                setTurnstileToken(token);
+              }}
+            />
           )}
 
           {/* Submit */}
